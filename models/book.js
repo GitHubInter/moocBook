@@ -4,6 +4,9 @@ const {
   UPLOAD_PATH
 } = require('../utils/constant')
 const fs = require('fs')
+const Epub= require('../utils/epub')
+const { resolve } = require('path')
+const { rejects } = require('assert')
 
 class Book {
   constructor(file, data) {
@@ -61,6 +64,58 @@ class Book {
   }
 
   createBookFromData(data) {}
+
+  parse() {
+    return new Promise((resolve, reject) => {
+      const bookPath = `${UPLOAD_PATH}${this.filePath}`
+      if (!fs.existsSync(bookPath)) {
+        reject(new Error('电子书不存在'))
+      }
+      const epub = new Epub(bookPath)
+      epub.on('error', err => {
+        reject(err)
+      })
+      epub.on('end', err => {
+        if (err) {
+          reject(err)
+        } else {
+          console.log('epub end', epub.manifest)
+          const {
+            language,
+            creator,
+            creatorFileAs,
+            title,
+            cover,
+            publisher
+          } = epub.metadata
+          if (!title) {
+            reject(new Error('图书标题为空'))
+          } else {
+            this.title = title
+            this.language = language || 'en'
+            this.author = creator || creatorFileAs || 'unknown'
+            this.publisher = publisher || 'unknown'
+            this.rootFile = epub.rootFile 
+            const handleGetImage = (err, file, mimeType) => {
+              if (err) {
+                reject(err)
+              } else {
+                const suffix = mimeType.split('/')[1]
+                const coverPath = `${UPLOAD_PATH}/img/${this.fileName}.${suffix}`
+                const coverUrl = `${UPLOAD_URL}/img/${this.fileName}.${suffix}`
+                fs.writeFileSync(coverPath, file, 'binary')
+                this.coverPath = `/img/${this.fileName}.${suffix}`
+                this.cover = coverUrl
+                resolve(this)
+              }
+            }
+            epub.getImage(cover, handleGetImage)
+          }
+        }
+      })
+      epub.parse()
+    })
+  }
 }
 
 module.exports = Book
