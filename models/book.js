@@ -95,27 +95,50 @@ class Book {
             this.language = language || 'en'
             this.author = creator || creatorFileAs || 'unknown'
             this.publisher = publisher || 'unknown'
-            this.rootFile = epub.rootFile 
-            const handleGetImage = (err, file, mimeType) => {
-              if (err) {
-                reject(err)
-              } else {
-                const suffix = mimeType.split('/')[1]
-                const coverPath = `${UPLOAD_PATH}/img/${this.fileName}.${suffix}`
-                const coverUrl = `${UPLOAD_URL}/img/${this.fileName}.${suffix}`
-                fs.writeFileSync(coverPath, file, 'binary')
-                this.coverPath = `/img/${this.fileName}.${suffix}`
-                this.cover = coverUrl
-                resolve(this)
+            this.rootFile = epub.rootFile
+            try {
+              this.unzip()
+              this.parseContents(epub)
+              const handleGetImage = (err, file, mimeType) => {
+                if (err) {
+                  reject(err)
+                } else {
+                  const suffix = mimeType.split('/')[1]
+                  const coverPath = `${UPLOAD_PATH}/img/${this.fileName}.${suffix}`
+                  const coverUrl = `${UPLOAD_URL}/img/${this.fileName}.${suffix}`
+                  fs.writeFileSync(coverPath, file, 'binary')
+                  this.coverPath = `/img/${this.fileName}.${suffix}`
+                  this.cover = coverUrl
+                  resolve(this)
+                }
               }
+              console.log('cover', cover)
+              epub.getImage(cover, handleGetImage)
+            } catch (e) {
+              reject(e)
             }
-            epub.getImage(cover, handleGetImage)
+            
           }
         }
       })
       epub.parse()
     })
   }
+
+  unzip() {
+    const AdmZip = require('adm-zip')
+    const zip = new AdmZip(Book.genPath(this.path))
+    zip.extractAllTo(Book.genPath(this.unzipPath), true)
+  }
+
+  static genPath(path) {
+    if (!path.startsWith('/')) {
+      path = `/${path}`
+    }
+    return `${UPLOAD_PATH}${path}`
+  }
 }
+
+
 
 module.exports = Book
