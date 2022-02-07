@@ -70,6 +70,22 @@ function insert(model, tableName) {
                 const valuesString = values.join(',')
                 sql = `${sql}${keysString}) VALUES (${valuesString})`
                 debug && console.log(sql)
+                const conn = connect()
+                try {
+                    conn.query(sql, (err, result) => {
+                        if (err) {
+                            reject(err)
+                        } else {
+                            resolve(result)
+                        }
+                    })
+                } catch (e) {
+                    reject(e)
+                } finally {
+                    conn.end()
+                }
+            } else {
+                reject(new Error('插入数据库失败，对象中没有任何属性'))
             }
         }
     })
