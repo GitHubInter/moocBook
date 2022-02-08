@@ -1,6 +1,7 @@
 const {
   MIME_TYPE_EPUB,
   UPLOAD_URL,
+  OLD_UPLOAD_URL,
   UPLOAD_PATH
 } = require('../utils/constant')
 const fs = require('fs')
@@ -85,6 +86,7 @@ class Book {
     this.updateType = data.updateType === 0 ? data.updateType : 1
     this.category = data.category || 99
     this.categoryText = data.categoryText || '自定义'
+    this.contents = data.contents || []
   }
 
   parse() {
@@ -202,6 +204,7 @@ class Book {
         const xml = fs.readFileSync(ncxFilePath, 'utf-8')
         const dir = path.dirname(ncxFilePath).replace(UPLOAD_PATH, '')
         const fileName = this.fileName
+        const unzipPath = this.unzipPath
         xml2js(xml, {
           explicitArray: false,
           ignoreAttrs: false
@@ -218,6 +221,8 @@ class Book {
               // console.log('nav', newNavMap.length, epub.flow.length)
               newNavMap.forEach((chapter, index) => {
                 const src = chapter.content['$'].src
+                chapter.id = `${src}`
+                chapter.href = `${dir}/${src}`.replace(unzipPath, '')
                 chapter.text = `${UPLOAD_URL}${dir}/${src}`
                 chapter.label = chapter.navLabel.text || ''
                 chapter.navId = chapter['$'].id
@@ -225,16 +230,7 @@ class Book {
                 chapter.order = index + 1
                 chapters.push(chapter)
               })
-              const chapterTree = []
-              chapters.forEach(c => {
-                c.children = []
-                if (c.pid === '') {
-                  chapterTree.push(c)
-                } else {
-                  const parent = chapters.find(_ => _.navId === c.pid)
-                  parent.children.push(c)
-                }
-              })
+              const chapterTree = Book.genContentsTree(chapters)
               resolve({ chapters, chapterTree })
             } else {
               reject(new Error('目录解析失败，目录数为0'))
@@ -270,11 +266,78 @@ class Book {
     }
   }
 
+  getContents() {
+    return this.contents
+  }
+
+  reset() {
+    console.log(this.fileName)
+    if (Book.pathExists(this.filePath)) {
+      fs.unlinkSync(Book.genPath(this.filePath))
+    }
+    if (Book.pathExists(this.coverPath)) {
+      fs.unlinkSync(Book.genPath(this.coverPath))
+    }
+    if (Book.pathExists(this.unzipPath)) {
+      // 低版本node中recursive不支持
+      fs.rmdirSync(Book.genPath(this.unzipPath), { recursive: true })
+    }
+  }
+
   static genPath(path) {
     if (!path.startsWith('/')) {
       path = `/${path}`
     }
     return `${UPLOAD_PATH}${path}`
+  }
+
+  static pathExists(path) {
+    if (path.startsWith(UPLOAD_PATH)) {
+      return fs.existsSync(path)
+    } else {
+      return fs.existsSync(Book.genPath(path))
+    }
+  }
+
+  static genCoverUrl(book) {
+    const { cover } = book
+    if (+book.updateType === 0) {
+      if (cover) {
+        if (cover.startsWith('/')) {
+          return `${OLD_UPLOAD_URL}${cover}`
+        } else {
+          return `${OLD_UPLOAD_URL}/${cover}`
+        }
+      } else {
+        return null
+      }
+    } else {
+      if (cover) {
+        if (cover.startsWith('/')) {
+          return `${UPLOAD_URL}${cover}`
+        } else {
+          return `${UPLOAD_URL}/${cover}`
+        }
+      } else {
+        return null
+      }
+    }
+  }
+
+  static genContentsTree(contents) {
+    if (contents) {
+      const contentsTree = []
+      contents.forEach(c => {
+        c.children = []
+        if (c.pid === '') {
+          contentsTree.push(c)
+        } else {
+          const parent = contents.find(_ => _.navId === c.pid)
+          parent.children.push(c)
+        }
+      })
+      return contentsTree
+    }
   }
 }
 

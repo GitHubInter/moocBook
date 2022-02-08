@@ -1,5 +1,6 @@
 const { env } = require('./env')
 const UPLOAD_PATH = env === 'dev' ? 'E:/work/2021year-end/test/upload/admin-upload-ebook' : '/root/upload/admin-upload/ebook';
+const OLD_UPLOAD_URL = env === 'dev' ? 'https://book.youbaobao.xyz/book/res/img' : 'https://www.youbaobao.xyz/book/res/img';
 const UPLOAD_URL = env === 'dev' ? 'http://yoyu.online:8089/admin-upload-ebook' : 'https://yoyu.online:8089/admin-upload-ebook';
 
 module.exports = {
@@ -11,6 +12,7 @@ module.exports = {
   PRIVATE_KEY: 'admin_imooc_node_test_youbaobao_xyz',
   JWT_EXPIRED: 60 * 60, // token失效时间
   UPLOAD_PATH,
+  OLD_UPLOAD_URL,
   UPLOAD_URL,
   MIME_TYPE_EPUB: 'application/epub' // 老师那里解析结果为application/epub+zip
 }
